@@ -151,7 +151,7 @@ export default function LoginPage() {
           <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Demo Credentials</h3>
           <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
             Try any role below — all three share the password{' '}
-            <code className="rounded bg-gray-200/70 px-1 py-0.5 font-mono dark:bg-slate-800">
+            <code className="rounded bg-gray-200/70 px-1 py-0.5 font-mono text-gray-700 dark:bg-slate-800 dark:text-gray-300">
               {DEMO_PASSWORD}
             </code>
             .

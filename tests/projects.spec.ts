@@ -80,6 +80,87 @@ test.describe('Projects', () => {
     await expect(inProgressColumnAfterReload.getByText(uniqueTitle)).toBeVisible()
   })
 
+  test('dragging a card into Review lands it in Review, not Done', async ({ page }) => {
+    // Regression test for a closestCorners collision-detection bug: with
+    // unevenly-sized columns (e.g. Review empty/short next to a taller
+    // Done), closestCorners could resolve a drop to the wrong adjacent
+    // column even when the pointer was comfortably inside the intended
+    // one. Dropping near the Review/Done boundary - not dead-center in
+    // Review - is what actually exercises that failure mode.
+    const uniqueTitle = `Review Drop Test ${Date.now()}`
+
+    // The default test viewport isn't wide enough to fit all 4 columns, so
+    // the board scrolls horizontally - and dnd-kit's built-in auto-scroll
+    // during a drag would shift column positions mid-gesture, which has
+    // nothing to do with the collision-detection behavior this test
+    // exists to check. Use a viewport wide enough that the whole board is
+    // visible and static throughout the drag.
+    await page.setViewportSize({ width: 1800, height: 900 })
+
+    await loginAndWaitForDashboard(page, USERS.manager.email, USERS.manager.password)
+
+    await page.goto('/projects')
+    await page.getByRole('button', { name: 'New Project' }).click()
+    await page.locator('#title').fill(uniqueTitle)
+    await page.locator('#clientId').click()
+    await page.getByRole('option').first().click()
+    await page.getByRole('button', { name: 'Create Project' }).click()
+
+    const notStartedColumn = page.locator('[data-testid="kanban-column"][data-status="NOT_STARTED"]')
+    const reviewColumn = page.locator('[data-testid="kanban-column"][data-status="REVIEW"]')
+    const doneColumn = page.locator('[data-testid="kanban-column"][data-status="DONE"]')
+
+    // createProject's refetchQueries re-fetches the full project list, which
+    // gets slower as the shared dev/test database accumulates more rows
+    // from repeated suite runs - give it more headroom than the default 5s.
+    await expect(notStartedColumn.getByText(uniqueTitle)).toBeVisible({ timeout: 15000 })
+
+    const card = notStartedColumn.locator('[data-testid="project-card"]', {
+      hasText: uniqueTitle,
+    })
+    const cardBox = await card.boundingBox()
+    const targetBox = await reviewColumn.boundingBox()
+    if (!cardBox || !targetBox) throw new Error('Could not measure card or column position')
+
+    const startX = cardBox.x + cardBox.width / 2
+    const startY = cardBox.y + cardBox.height / 2
+    // Aim near the right edge of Review, close to the Done boundary, rather
+    // than Review's dead center - that's the position where the wrong
+    // column used to register.
+    const endX = targetBox.x + targetBox.width * 0.8
+    const endY = targetBox.y + 150
+
+    await page.mouse.move(startX, startY)
+    await page.mouse.down()
+    await page.waitForTimeout(100)
+
+    const steps = 25
+    for (let i = 1; i <= steps; i++) {
+      await page.mouse.move(
+        startX + ((endX - startX) * i) / steps,
+        startY + ((endY - startY) * i) / steps
+      )
+      await page.waitForTimeout(25)
+    }
+
+    const [response] = await Promise.all([
+      page.waitForResponse(
+        (res) =>
+          res.url().includes('/api/graphql') &&
+          res.request().postDataJSON()?.query?.includes('UpdateProjectStatus')
+      ),
+      (async () => {
+        await page.waitForTimeout(150)
+        await page.mouse.up()
+      })(),
+    ])
+    expect(response.ok()).toBeTruthy()
+    expect(response.request().postDataJSON()?.variables?.status).toBe('REVIEW')
+
+    await expect(reviewColumn.getByText(uniqueTitle)).toBeVisible()
+    await expect(doneColumn.getByText(uniqueTitle)).not.toBeVisible()
+  })
+
   test('a keyboard-only user can move a card between columns with dnd-kit\'s keyboard sensor', async ({
     page,
   }) => {

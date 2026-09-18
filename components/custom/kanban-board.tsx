@@ -4,10 +4,12 @@ import {
   DndContext,
   KeyboardSensor,
   PointerSensor,
-  closestCorners,
+  closestCenter,
+  pointerWithin,
   useDroppable,
   useSensor,
   useSensors,
+  type CollisionDetection,
   type DragEndEvent,
 } from '@dnd-kit/core'
 import {
@@ -40,6 +42,23 @@ export const emptyColumns: Record<Status, Project[]> = {
   IN_PROGRESS: [],
   REVIEW: [],
   DONE: [],
+}
+
+// closestCorners compares every droppable's corners - including every
+// individual sortable card, not just the 4 column containers - so with
+// unevenly-sized columns (e.g. one column packed with cards next to a
+// short/empty one) it can resolve a drop to the wrong adjacent column even
+// when the pointer is comfortably inside the intended one. Checking which
+// droppable the pointer is literally inside of first (falling back to
+// closestCenter only when the pointer is outside every droppable, e.g.
+// dragging fast) is dnd-kit's own recommended fix for this class of bug in
+// multi-container boards.
+const collisionDetection: CollisionDetection = (args) => {
+  const pointerCollisions = pointerWithin(args)
+  if (pointerCollisions.length > 0) {
+    return pointerCollisions
+  }
+  return closestCenter(args)
 }
 
 function findContainer(
@@ -133,7 +152,7 @@ export function KanbanBoard({
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCorners}
+      collisionDetection={collisionDetection}
       onDragEnd={handleDragEnd}
     >
       <div className="flex gap-4 overflow-x-auto pb-2">

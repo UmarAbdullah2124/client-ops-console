@@ -22,6 +22,11 @@ jobs:
       env:
         DATABASE_URL: ${{ secrets.DATABASE_URL }}
         AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+    - name: Clean up test-created data
+      if: always()
+      run: npm run cleanup:test-data
+      env:
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
     - uses: actions/upload-artifact@v4
       if: ${{ !cancelled() }}
       with:
