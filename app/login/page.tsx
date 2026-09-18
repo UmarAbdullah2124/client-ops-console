@@ -25,6 +25,14 @@ const features = [
   'Built for enterprise-grade workflows',
 ]
 
+const DEMO_PASSWORD = 'password123'
+
+const demoAccounts = [
+  { role: 'Admin', email: 'admin@clientops.dev' },
+  { role: 'Manager', email: 'manager@clientops.dev' },
+  { role: 'Viewer', email: 'viewer@clientops.dev' },
+]
+
 export default function LoginPage() {
   const router = useRouter()
   const [formError, setFormError] = useState<string | null>(null)
@@ -32,11 +40,17 @@ export default function LoginPage() {
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: { email: '', password: '' },
   })
+
+  const fillDemoCredentials = (email: string) => {
+    setValue('email', email, { shouldValidate: true })
+    setValue('password', DEMO_PASSWORD, { shouldValidate: true })
+  }
 
   const onSubmit = async (values: LoginValues) => {
     setFormError(null)
@@ -131,6 +145,40 @@ export default function LoginPage() {
               {isSubmitting ? 'Signing in...' : 'Sign In'}
             </Button>
           </form>
+        </div>
+
+        <div className="mt-6 w-full max-w-sm rounded-xl border border-gray-200 bg-gray-50 p-5 dark:border-slate-800 dark:bg-slate-900/40">
+          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Demo Credentials</h3>
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            Try any role below — all three share the password{' '}
+            <code className="rounded bg-gray-200/70 px-1 py-0.5 font-mono dark:bg-slate-800">
+              {DEMO_PASSWORD}
+            </code>
+            .
+          </p>
+
+          <ul className="mt-3 space-y-2">
+            {demoAccounts.map((account) => (
+              <li
+                key={account.email}
+                className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900"
+              >
+                <div className="min-w-0">
+                  <div className="text-xs font-medium text-gray-900 dark:text-gray-100">{account.role}</div>
+                  <div className="truncate text-xs text-gray-500 dark:text-gray-400">{account.email}</div>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="xs"
+                  className="shrink-0 border-indigo-200 text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 dark:border-indigo-500/30 dark:text-indigo-400 dark:hover:bg-indigo-500/10"
+                  onClick={() => fillDemoCredentials(account.email)}
+                >
+                  Use this
+                </Button>
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
     </main>
